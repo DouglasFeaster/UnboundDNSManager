@@ -1,0 +1,44 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">UnboundDNSManager</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill h4" aria-hidden="true"></span> Home
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="cache">
+                <span class="bi bi-hdd-rack-fill h4" aria-hidden="true"></span> Cache Management
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="zones">
+                <span class="bi bi-globe h4" aria-hidden="true"></span> Local Zones
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="records">
+                <span class="bi bi-pencil-square h4" aria-hidden="true"></span>  Local Records
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="forwards">
+                <span class="bi bi-fast-forward-fill h4" aria-hidden="true"></span> Forward Zones
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="query">
+                <span class="bi bi-search h4" aria-hidden="true"></span> Query Tool
+            </NavLink>
+        </div>
+    </nav>
+</div>
+

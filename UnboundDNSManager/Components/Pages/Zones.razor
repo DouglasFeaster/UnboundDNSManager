@@ -1,0 +1,175 @@
+﻿@page "/zones"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Local Zones</PageTitle>
+
+<h2>Local Zones Management</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Add Local Zone</h5>
+        <div class="form-group">
+            <label>Zone Name:</label>
+            <input type="text" class="form-control" @bind="newZoneName" placeholder="example.local" />
+        </div>
+        <div class="form-group mt-2">
+            <label>Zone Type:</label>
+            <select class="form-control" @bind="newZoneType">
+                <option value="static">static</option>
+                <option value="deny">deny</option>
+                <option value="refuse">refuse</option>
+                <option value="redirect">redirect</option>
+                <option value="transparent">transparent</option>
+                <option value="typetransparent">typetransparent</option>
+            </select>
+        </div>
+        <button class="btn btn-primary mt-2" @onclick="AddZone" disabled="@isProcessing">Add Zone</button>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Current Local Zones</h5>
+        <button class="btn btn-info mb-2" @onclick="LoadZones" disabled="@isProcessing">Refresh List</button>
+        @if (isLoading)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else if (!string.IsNullOrEmpty(zonesOutput))
+        {
+            <pre style="max-height: 400px; overflow-y: auto;">@zonesOutput</pre>
+        }
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Remove Local Zone</h5>
+        <div class="form-group">
+            <label>Zone Name:</label>
+            <input type="text" class="form-control" @bind="zoneToRemove" placeholder="example.local" />
+        </div>
+        <button class="btn btn-danger mt-2" @onclick="RemoveZone" disabled="@isProcessing">Remove Zone</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") mt-3">@message</div>
+}
+
+@code {
+    private bool isProcessing = false;
+    private bool isLoading = false;
+    private bool isError = false;
+    private string? message;
+    private string? zonesOutput;
+    private string newZoneName = "";
+    private string newZoneType = "static";
+    private string zoneToRemove = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadZones();
+    }
+
+    private async Task LoadZones()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "list_local_zones" });
+            zonesOutput = output;
+        }
+        catch (Exception ex)
+        {
+            zonesOutput = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddZone()
+    {
+        if (string.IsNullOrWhiteSpace(newZoneName))
+        {
+            ShowError("Please enter a zone name");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "local_zone", newZoneName, newZoneType });
+
+            isError = !success;
+            message = success ? "Zone added successfully" : output;
+
+            if (success)
+            {
+                newZoneName = "";
+                await LoadZones();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemoveZone()
+    {
+        if (string.IsNullOrWhiteSpace(zoneToRemove))
+        {
+            ShowError("Please enter a zone name");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "local_zone_remove", zoneToRemove });
+
+            isError = !success;
+            message = success ? "Zone removed successfully" : output;
+
+            if (success)
+            {
+                zoneToRemove = "";
+                await LoadZones();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowError(string error)
+    {
+        isError = true;
+        message = error;
+    }
+}

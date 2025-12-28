@@ -1,0 +1,181 @@
+﻿@page "/records"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Local Records</PageTitle>
+
+<h2>Local Records Management</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Add Local Record</h5>
+        <div class="form-group">
+            <label>Domain Name:</label>
+            <input type="text" class="form-control" @bind="recordName" placeholder="www.example.local" />
+        </div>
+        <div class="form-group mt-2">
+            <label>Record Type:</label>
+            <select class="form-control" @bind="recordType">
+                <option value="A">A</option>
+                <option value="AAAA">AAAA</option>
+                <option value="CNAME">CNAME</option>
+                <option value="MX">MX</option>
+                <option value="TXT">TXT</option>
+                <option value="PTR">PTR</option>
+            </select>
+        </div>
+        <div class="form-group mt-2">
+            <label>Record Value:</label>
+            <input type="text" class="form-control" @bind="recordValue" placeholder="192.168.1.1" />
+        </div>
+        <button class="btn btn-primary mt-2" @onclick="AddRecord" disabled="@isProcessing">Add Record</button>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Current Local Records</h5>
+        <button class="btn btn-info mb-2" @onclick="LoadRecords" disabled="@isProcessing">Refresh List</button>
+        @if (isLoading)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else if (!string.IsNullOrEmpty(recordsOutput))
+        {
+            <pre style="max-height: 400px; overflow-y: auto;">@recordsOutput</pre>
+        }
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Remove Local Record</h5>
+        <div class="form-group">
+            <label>Record Name:</label>
+            <input type="text" class="form-control" @bind="recordToRemove" placeholder="www.example.local" />
+        </div>
+        <button class="btn btn-danger mt-2" @onclick="RemoveRecord" disabled="@isProcessing">Remove Record</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") mt-3">@message</div>
+}
+
+@code {
+    private bool isProcessing = false;
+    private bool isLoading = false;
+    private bool isError = false;
+    private string? message;
+    private string? recordsOutput;
+    private string recordName = "";
+    private string recordType = "A";
+    private string recordValue = "";
+    private string recordToRemove = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "list_local_data" });
+            recordsOutput = output;
+        }
+        catch (Exception ex)
+        {
+            recordsOutput = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddRecord()
+    {
+        if (string.IsNullOrWhiteSpace(recordName) || string.IsNullOrWhiteSpace(recordValue))
+        {
+            ShowError("Please enter both name and value");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "local_data", $"{recordName}. {recordType} {recordValue}" });
+
+            isError = !success;
+            message = success ? "Record added successfully" : output;
+
+            if (success)
+            {
+                recordName = "";
+                recordValue = "";
+                await LoadRecords();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemoveRecord()
+    {
+        if (string.IsNullOrWhiteSpace(recordToRemove))
+        {
+            ShowError("Please enter a record name");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "local_data_remove", recordToRemove });
+
+            isError = !success;
+            message = success ? "Record removed successfully" : output;
+
+            if (success)
+            {
+                recordToRemove = "";
+                await LoadRecords();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowError(string error)
+    {
+        isError = true;
+        message = error;
+    }
+}

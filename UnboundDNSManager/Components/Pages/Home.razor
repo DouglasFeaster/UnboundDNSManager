@@ -1,0 +1,137 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Dashboard</PageTitle>
+
+<h2>Server Status</h2>
+
+@if (isLoading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <h5>Status</h5>
+            <pre>@statusOutput</pre>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <button class="btn btn-primary" @onclick="RefreshStatus">Refresh</button>
+        <button class="btn btn-warning" @onclick="ReloadServer">Reload Server</button>
+        <button class="btn btn-info" @onclick="ShowStats">Show Statistics</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statsOutput))
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5>Statistics</h5>
+                <pre style="max-height: 400px; overflow-y: auto;">@statsOutput</pre>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? statusOutput;
+    private string? statsOutput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshStatus();
+    }
+
+    private async Task RefreshStatus()
+    {
+        isLoading = true;
+        errorMessage = null;
+        statsOutput = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "status" });
+            if (success)
+            {
+                statusOutput = output;
+            }
+            else
+            {
+                errorMessage = output;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ReloadServer()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "reload" });
+            if (success)
+            {
+                await RefreshStatus();
+            }
+            else
+            {
+                errorMessage = output;
+                isLoading = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            isLoading = false;
+        }
+    }
+
+    private async Task ShowStats()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "stats_noreset" });
+            if (success)
+            {
+                statsOutput = output;
+            }
+            else
+            {
+                errorMessage = output;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

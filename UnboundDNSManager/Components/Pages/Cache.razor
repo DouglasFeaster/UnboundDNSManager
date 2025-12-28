@@ -1,0 +1,123 @@
+﻿@page "/cache"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Cache Management</PageTitle>
+
+<h2>Cache Management</h2>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Flush Domain from Cache</h5>
+        <div class="form-group">
+            <label>Domain Name:</label>
+            <input type="text" class="form-control" @bind="domainToFlush" placeholder="example.com" />
+        </div>
+        <button class="btn btn-warning mt-2" @onclick="FlushDomain" disabled="@isProcessing">Flush Domain</button>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Flush Specific Record Type</h5>
+        <div class="form-group">
+            <label>Domain Name:</label>
+            <input type="text" class="form-control" @bind="domainForType" placeholder="example.com" />
+        </div>
+        <div class="form-group mt-2">
+            <label>Record Type:</label>
+            <input type="text" class="form-control" @bind="recordType" placeholder="A, AAAA, MX, etc." />
+        </div>
+        <button class="btn btn-warning mt-2" @onclick="FlushType" disabled="@isProcessing">Flush Type</button>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Flush Entire Zone</h5>
+        <div class="form-group">
+            <label>Zone Name:</label>
+            <input type="text" class="form-control" @bind="zoneToFlush" placeholder="example.com" />
+        </div>
+        <button class="btn btn-danger mt-2" @onclick="FlushZone" disabled="@isProcessing">Flush Zone</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") mt-3">
+        <pre>@message</pre>
+    </div>
+}
+
+@code {
+    private bool isProcessing = false;
+    private bool isError = false;
+    private string? message;
+    private string domainToFlush = "";
+    private string domainForType = "";
+    private string recordType = "";
+    private string zoneToFlush = "";
+
+    private async Task FlushDomain()
+    {
+        if (string.IsNullOrWhiteSpace(domainToFlush))
+        {
+            ShowError("Please enter a domain name");
+            return;
+        }
+
+        await ExecuteCommand(new[] { "flush", domainToFlush });
+    }
+
+    private async Task FlushType()
+    {
+        if (string.IsNullOrWhiteSpace(domainForType) || string.IsNullOrWhiteSpace(recordType))
+        {
+            ShowError("Please enter both domain and record type");
+            return;
+        }
+
+        await ExecuteCommand(new[] { "flush_type", domainForType, recordType });
+    }
+
+    private async Task FlushZone()
+    {
+        if (string.IsNullOrWhiteSpace(zoneToFlush))
+        {
+            ShowError("Please enter a zone name");
+            return;
+        }
+
+        await ExecuteCommand(new[] { "flush_zone", zoneToFlush });
+    }
+
+    private async Task ExecuteCommand(string[] command)
+    {
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(command);
+            isError = !success;
+            message = output;
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowError(string error)
+    {
+        isError = true;
+        message = error;
+    }
+}

@@ -1,0 +1,93 @@
+﻿@page "/query"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Query Tool</PageTitle>
+
+<h2>DNS Query Tool</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Lookup Domain</h5>
+        <div class="form-group">
+            <label>Domain Name:</label>
+            <input type="text" class="form-control" @bind="domainToLookup" placeholder="example.com" @onkeypress="HandleKeyPress" />
+        </div>
+        <button class="btn btn-primary mt-2" @onclick="LookupDomain" disabled="@isProcessing">Lookup</button>
+    </div>
+</div>
+
+@if (isProcessing)
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <p><em>Loading...</em></p>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(lookupResult))
+{
+    <div class="card mt-3">
+        <div class="card-body">
+            <h5>Lookup Result</h5>
+            <pre style="max-height: 400px; overflow-y: auto;">@lookupResult</pre>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">@errorMessage</div>
+}
+
+@code {
+    private bool isProcessing = false;
+    private string? errorMessage;
+    private string? lookupResult;
+    private string domainToLookup = "";
+
+    private async Task LookupDomain()
+    {
+        if (string.IsNullOrWhiteSpace(domainToLookup))
+        {
+            errorMessage = "Please enter a domain name";
+            return;
+        }
+
+        isProcessing = true;
+        errorMessage = null;
+        lookupResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "lookup", domainToLookup });
+
+            if (success)
+            {
+                lookupResult = output;
+            }
+            else
+            {
+                errorMessage = output;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isProcessing)
+        {
+            await LookupDomain();
+        }
+    }
+}

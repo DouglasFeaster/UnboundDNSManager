@@ -1,0 +1,169 @@
+﻿@page "/forwards"
+@rendermode InteractiveServer
+@using UnboundDNSManager.Services
+@inject IUnboundService UnboundService
+
+<PageTitle>Forward Zones</PageTitle>
+
+<h2>Forward Zones Management</h2>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Add Forward Zone</h5>
+        <div class="form-group">
+            <label>Zone Name:</label>
+            <input type="text" class="form-control" @bind="forwardZone" placeholder="example.com" />
+        </div>
+        <div class="form-group mt-2">
+            <label>Forward Server (IP or IP@port):</label>
+            <input type="text" class="form-control" @bind="forwardServer" placeholder="8.8.8.8 or 8.8.8.8@53" />
+        </div>
+        <button class="btn btn-primary mt-2" @onclick="AddForward" disabled="@isProcessing">Add Forward</button>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Current Forward Zones</h5>
+        <button class="btn btn-info mb-2" @onclick="LoadForwards" disabled="@isProcessing">Refresh List</button>
+        @if (isLoading)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else if (!string.IsNullOrEmpty(forwardsOutput))
+        {
+            <pre style="max-height: 400px; overflow-y: auto;">@forwardsOutput</pre>
+        }
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5>Remove Forward Zone</h5>
+        <div class="form-group">
+            <label>Zone Name:</label>
+            <input type="text" class="form-control" @bind="forwardToRemove" placeholder="example.com" />
+        </div>
+        <button class="btn btn-danger mt-2" @onclick="RemoveForward" disabled="@isProcessing">Remove Forward</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") mt-3">@message</div>
+}
+
+@code {
+    private bool isProcessing = false;
+    private bool isLoading = false;
+    private bool isError = false;
+    private string? message;
+    private string? forwardsOutput;
+    private string forwardZone = "";
+    private string forwardServer = "";
+    private string forwardToRemove = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadForwards();
+    }
+
+    private async Task LoadForwards()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(new[] { "list_forwards" });
+            forwardsOutput = output;
+        }
+        catch (Exception ex)
+        {
+            forwardsOutput = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddForward()
+    {
+        if (string.IsNullOrWhiteSpace(forwardZone) || string.IsNullOrWhiteSpace(forwardServer))
+        {
+            ShowError("Please enter both zone name and server");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "forward_add", forwardZone, forwardServer });
+
+            isError = !success;
+            message = success ? "Forward zone added successfully" : output;
+
+            if (success)
+            {
+                forwardZone = "";
+                forwardServer = "";
+                await LoadForwards();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RemoveForward()
+    {
+        if (string.IsNullOrWhiteSpace(forwardToRemove))
+        {
+            ShowError("Please enter a zone name");
+            return;
+        }
+
+        isProcessing = true;
+        message = null;
+        StateHasChanged();
+
+        try
+        {
+            var (success, output) = await UnboundService.ExecuteCommandAsync(
+                new[] { "forward_remove", forwardToRemove });
+
+            isError = !success;
+            message = success ? "Forward zone removed successfully" : output;
+
+            if (success)
+            {
+                forwardToRemove = "";
+                await LoadForwards();
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowError(string error)
+    {
+        isError = true;
+        message = error;
+    }
+}
