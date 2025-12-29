@@ -1,4 +1,5 @@
-﻿using System.Net.Security;
+﻿using System.Linq;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -179,7 +180,7 @@ public class UnboundControlClient : IDisposable
             // Send EOF marker for certain commands
             if (command[0] != "load_cache")
             {
-                await SendEOFMarkerAsync(cancellationToken).ConfigureAwait(false);
+                await SendEOFMarkerAsync(cancellationToken);
             }
 
             await _stream.FlushAsync(cancellationToken);
@@ -220,20 +221,30 @@ public class UnboundControlClient : IDisposable
     private async Task SendEOFMarkerAsync(CancellationToken cancellationToken)
     {
         ReadOnlyMemory<byte> eof = new byte[] { 0x04, 0x0a };
-        await _stream!.WriteAsync(eof, cancellationToken).ConfigureAwait(false);
+        await _stream!.WriteAsync(eof, cancellationToken);
     }
 
     private static bool RequiresStdinData(string command)
     {
         return command switch
         {
-            "load_cache" => true,
-            "local_zones" => true,
-            "local_zones_remove" => true,
-            "local_datas" => true,
-            "local_datas_remove" => true,
-            "view_local_datas" => true,
-            "view_local_datas_remove" => true,
+            "verbosity" => true,
+            "local_zone" => true,
+            "local_zone_remove" => true,
+            "local_data" => true,
+            "local_data_remove" => true,
+            "lookup" => true,
+            "flush" => true,
+            "flush_type" => true,
+            "flush_zone" => true,
+            "flush_infra" => true,
+            "set_option" => true,
+            "get_option" => true,
+            "forward_add" => true,
+            "forward_remove" => true,
+            "stub_add" => true,
+            "stub_remove" => true,
+            "forward" => true,
             _ => false
         };
     }
